@@ -1,0 +1,10 @@
+[meta]
+name        = "Archipelago"
+author      = "Sigeth"
+version     = "0.1.0"
+category    = "Multiworld"
+description = "Integrates Trackmania Turbo with the Archipelago.gg multiworld randomizer."
+
+[script]
+# Openplanet compiles every *.as under src/ by default. Listed here for clarity.
+sources = [ "src/**.as" ]
