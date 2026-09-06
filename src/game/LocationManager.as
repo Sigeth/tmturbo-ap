@@ -35,6 +35,17 @@ class LocationManager {
         return mask;
     }
 
+    // Which medal tiers of a track exist as AP locations at all (some seeds only
+    // define Gold + Author). Bit t = Medal enum. The overlay hides the rest.
+    int AvailableMedalMask(const string &in trackLabel) {
+        int mask = 0;
+        for (int t = int(Medal::Bronze); t <= int(Medal::Author); t++) {
+            if (m_client.data.LocationId(TrackLocationName(trackLabel, Medal(t))) >= 0)
+                mask |= (1 << t);
+        }
+        return mask;
+    }
+
     // From the Connected packet.
     void SeedFromServer(Json::Value@ checked, Json::Value@ missing) {
         m_checked.Resize(0);

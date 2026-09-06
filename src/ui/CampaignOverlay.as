@@ -215,15 +215,23 @@ namespace Overlay {
         nvg::Fill();
     }
 
-    void DrawPips(float x, float y, float w, float h, int mask) {
+    // availMask: medal tiers that exist as AP locations for this track.
+    // checkedMask: of those, which have been checked. Only pips in availMask draw.
+    void DrawPips(float x, float y, float w, float h, int availMask, int checkedMask) {
+        int count = 0;
+        for (int t = 1; t <= 4; t++) if ((availMask & (1 << t)) != 0) count++;
+        if (count == 0) return;
+
         float r = Math::Max(2.5f, Math::Min(w, h) * 0.075f);
         float gap = r * 2.6f;
-        float total = gap * 3;
-        float px = x + w * 0.5f - total * 0.5f;
+        float px = x + w * 0.5f - gap * (count - 1) * 0.5f;
         float py = y + h - r * 2.2f;
+        int slot = 0;
         for (int t = 1; t <= 4; t++) {
-            vec2 c = vec2(px + (t - 1) * gap, py);
-            bool got = (mask & (1 << t)) != 0;
+            if ((availMask & (1 << t)) == 0) continue;
+            vec2 c = vec2(px + slot * gap, py);
+            slot++;
+            bool got = (checkedMask & (1 << t)) != 0;
             nvg::BeginPath();
             nvg::Circle(c, r);
             if (got) {
@@ -270,7 +278,9 @@ void Render() {
             Overlay::TpSlot(k, x, y, w, h);
             if (S_GridDebug) { Overlay::DrawBox(x, y, w, h, vec4(0, 1, 1, 0.9)); continue; }
             if (g_client.items.IsTrackUnlocked(lbl))
-                Overlay::DrawPips(x, y, w, h, g_client.locations.CheckedMedalMask(lbl));
+                Overlay::DrawPips(x, y, w, h,
+                    g_client.locations.AvailableMedalMask(lbl),
+                    g_client.locations.CheckedMedalMask(lbl));
             else
                 Overlay::DrawLock(x, y, w, h);
         }
@@ -299,7 +309,9 @@ void Render() {
             continue;
         }
         if (g_client.items.IsTrackUnlocked(label)) {
-            Overlay::DrawPips(x, y, w, hgt, g_client.locations.CheckedMedalMask(label));
+            Overlay::DrawPips(x, y, w, hgt,
+                g_client.locations.AvailableMedalMask(label),
+                g_client.locations.CheckedMedalMask(label));
         } else {
             Overlay::DrawLock(x, y, w, hgt);
         }
