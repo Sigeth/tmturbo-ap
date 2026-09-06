@@ -20,15 +20,19 @@
 //   "<Track Label> - <Medal>"   e.g. "White Canyon 01 - Gold"
 
 const string CAMPAIGN_AUTHOR_LOGIN = "Nadeo";
+// The VR campaign reuses the same 200 maps but authored as "nadeolabs" -- accept
+// both, the way the Ultimate Medals / TurboSkillpoints plugins do.
+const string CAMPAIGN_AUTHOR_LOGIN_VR = "nadeolabs";
 const array<string> TIERS = { "White", "Green", "Blue", "Red", "Black" };
 const array<string> ENVIRONMENTS = { "Canyon", "Valley", "Lagoon", "Stadium" };
 const int TRACKS_PER_TIER = 40;
 const int TRACKS_PER_ENV = 10;
 const array<string> MEDAL_SUFFIX = { "", "Bronze", "Silver", "Gold", "Author" };
 
-// "001".."200" from a Nadeo-authored map -> 1..200; anything else -> 0.
+// "001".."200" from an official-campaign map -> 1..200; anything else -> 0.
 int CampaignNumber(const string &in mapName, const string &in authorLogin) {
-    if (authorLogin != CAMPAIGN_AUTHOR_LOGIN) return 0;
+    if (authorLogin != CAMPAIGN_AUTHOR_LOGIN
+     && authorLogin != CAMPAIGN_AUTHOR_LOGIN_VR) return 0;
     int n = 0;
     if (!Text::TryParseInt(mapName, n)) return 0;
     return (n >= 1 && n <= 200) ? n : 0;
@@ -42,6 +46,19 @@ string TrackLabel(int campaignNumber) {
     string env = ENVIRONMENTS[(z % TRACKS_PER_TIER) / TRACKS_PER_ENV];
     int idx = z % TRACKS_PER_ENV + 1;
     return tier + " " + env + " " + (idx < 10 ? "0" : "") + idx;
+}
+
+// "White Canyon 01" -> 1..200; malformed / out of range -> 0. Inverse of
+// TrackLabel(). Tolerant of extra spacing but expects the exact tier/env words.
+int CampaignNumberFromLabel(const string &in label) {
+    array<string>@ parts = label.Split(" ");
+    if (parts.Length != 3) return 0;
+    int tierIdx = TIERS.Find(parts[0]);
+    int envIdx = ENVIRONMENTS.Find(parts[1]);
+    int idx = 0;
+    if (tierIdx < 0 || envIdx < 0 || !Text::TryParseInt(parts[2], idx)) return 0;
+    if (idx < 1 || idx > TRACKS_PER_ENV) return 0;
+    return tierIdx * TRACKS_PER_TIER + envIdx * TRACKS_PER_ENV + idx;
 }
 
 // The nth track (1..40) of a tier, in campaign order -- for progressive unlocks.

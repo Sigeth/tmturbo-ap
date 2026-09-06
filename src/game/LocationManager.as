@@ -23,6 +23,18 @@ class LocationManager {
     int get_CheckedCount() const { return m_checked.Length; }
     int get_TotalCount() const { return m_checked.Length + m_missing.Length; }
 
+    // Which medal tiers of a track have been checked, as a bitmask: bit t is set
+    // (t = Medal enum, Bronze=1 .. Author=4) when that track/medal location id is
+    // in m_checked. Used by the campaign overlay. Cheap: 4 dictionary lookups.
+    int CheckedMedalMask(const string &in trackLabel) {
+        int mask = 0;
+        for (int t = int(Medal::Bronze); t <= int(Medal::Author); t++) {
+            int id = m_client.data.LocationId(TrackLocationName(trackLabel, Medal(t)));
+            if (id >= 0 && IsChecked(id)) mask |= (1 << t);
+        }
+        return mask;
+    }
+
     // From the Connected packet.
     void SeedFromServer(Json::Value@ checked, Json::Value@ missing) {
         m_checked.Resize(0);

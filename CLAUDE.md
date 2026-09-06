@@ -99,6 +99,20 @@ Grep `%USERPROFILE%\OpenplanetTurbo\OpenplanetCore.json` (script API) and
 `Openplanet.h` (engine nods) before assuming a class or method exists — much of
 the online Openplanet docs describe the newer TM2020 build.
 
+- **No `Draw::` namespace.** Screen drawing is `nvg::` (only from a global
+  `void Render()` — drawn even with the Openplanet overlay closed) or
+  `UI::Get*DrawList()`.
+- **Reading the campaign map-selection screen** (`src/ui/CampaignOverlay.as`):
+  there is no menu API, so it walks the Nadeo ManiaLink tree —
+  `cast<CTrackManiaMenus>(app.MenuManager).MenuCustom_CurrentManiaApp
+  .UILayers[11]` → `.LocalPage.MainFrame` → `Controls[0][4][1][2][1]` →
+  `Controls[3]` label for the tier, `Controls[20/25/30/35]` frames with
+  `AbsolutePosition_V3.x == -120` for the selected environment. These indices and
+  the hard-coded 16:9 slot positions are copied from the **TurboSkillpoints**
+  plugin (installed under `Plugins/`), which is the reference for menu overlays on
+  this build. Brittle across game/menu updates and wrong on non-16:9 — every cast
+  is null-guarded so it degrades to "no overlay".
+
 ### Archipelago protocol notes
 
 - Frames are JSON **arrays** of command objects (`Packet::WrapArray` / `Parse`).
@@ -121,11 +135,12 @@ the online Openplanet docs describe the newer TM2020 build.
 | `src/ap/Protocol.as` | AP constants, packet builders, frame parser (`Packet::`) |
 | `src/ap/DataPackage.as` | Server id ⇄ name maps, disk-cached by checksum |
 | `src/ap/ApClient.as` | Session state machine (`Ap::Phase`), handshake, dispatch |
-| `src/game/GameState.as` | Reads the Turbo nods; emits `FinishEvent` on a race finish |
-| `src/game/TrackTable.as` | Campaign map number (1–200) → `"<Tier> <Env> NN"` label |
-| `src/game/LocationManager.as` | finish → location id; dedupe; batched send |
+| `src/game/GameState.as` | Reads the Turbo nods; emits `FinishEvent` on a race finish; bounces the player out of locked tracks |
+| `src/game/TrackTable.as` | Campaign map number (1–200) ⇄ `"<Tier> <Env> NN"` label |
+| `src/game/LocationManager.as` | finish → location id; dedupe; batched send; per-track checked-medal mask |
 | `src/game/ItemManager.as` | consumes `ReceivedItems`; client-enforced unlock set; per-seed persistence |
 | `src/ui/Window.as` | Status window + `RenderMenu()` entry |
+| `src/ui/CampaignOverlay.as` | `Render()` — nvg lock / medal-pip markers on the campaign map-selection screen |
 
 ## Naming contract with the `.apworld`
 
@@ -145,9 +160,15 @@ If you change one of these, change it on both sides.
 
 ## Open items
 
-- **Track-lock enforcement UX.** `ItemManager` knows a track is locked; nothing
-  stops the player entering it yet. Options: a custom launcher window (preferred),
-  or block-on-load + invalidate the run.
+- **Track-lock enforcement UX.** Done (pending in-game verification):
+  `CampaignOverlay.as` marks locked tiles on the campaign screen with a padlock
+  (unlocked tiles get Bronze/Silver/Gold/Author pips for checked medals), and
+  `GameState.LockedNow()` calls `BackToMainMenu()` when the player loads a locked
+  campaign map (gated on `S_BlockLockedTracks`). Records are untouched — the run
+  is abandoned, never finished. VERIFY: the ManiaLink tree walk + slot positions
+  on this install, and that `BackToMainMenu()` from a loading solo playground
+  writes no time and lands cleanly (fallback: `Stations` `RequestLeavePlayground`
+  or `CGamePlayground::Quit`).
 - **Goal condition.** `ItemManager.CheckGoal()` fires on "all locations checked".
   It should read the goal from `slot_data` instead (the apworld sends `goal`).
 - **Medal-detection breadth.** Verified for one track; spot-check the finish

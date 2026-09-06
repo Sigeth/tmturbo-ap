@@ -40,6 +40,7 @@ class GameState {
     private int m_lastRaceState = -1;
     private bool m_finishArmed = false;   // in a Finished episode, medal not yet resolved
     private int m_finishTries = 0;        // ticks spent waiting for a valid time
+    private string m_kickedLabel;         // last locked track we bounced, debounce
 
     // Produced here in Update(), consumed + cleared by Main.as (same thread).
     FinishEvent@ pendingFinish;
@@ -55,7 +56,7 @@ class GameState {
         if (app is null) return;
 
         auto challenge = app.Challenge;
-        if (challenge is null) { m_lastRaceState = -1; return; }
+        if (challenge is null) { m_lastRaceState = -1; m_kickedLabel = ""; return; }
         auto info = challenge.MapInfo;
         if (info is null) return;
 
@@ -63,12 +64,32 @@ class GameState {
 
         int number = CampaignNumber(string(challenge.MapName), challenge.AuthorLogin);
         m_currentLabel = TrackLabel(number);
-        if (m_currentLabel == "") { m_lastRaceState = -1; return; }
+        if (m_currentLabel == "") { m_lastRaceState = -1; m_kickedLabel = ""; return; }
 
         if (m_currentLabel != m_lastTracedLabel) {
             m_lastTracedLabel = m_currentLabel;
             Log::Trace("campaign map " + number + " -> " + m_currentLabel + " (" + m_currentUid + ")");
         }
+
+        // Locked-track enforcement. When we know (connected + item state synced)
+        // that this campaign track is not unlocked, bounce the player back to the
+        // menu before they can set a time. Saved records are never touched -- the
+        // run is abandoned, never finished.
+        if (LockedNow()) {
+            if (S_BlockLockedTracks && m_kickedLabel != m_currentLabel) {
+                m_kickedLabel = m_currentLabel;
+                Log::Info(m_currentLabel + " is locked -- returning to menu");
+                UI::ShowNotification("Archipelago",
+                    m_currentLabel + " is locked by Archipelago",
+                    vec4(0.8, 0.2, 0.2, 1), 4000);
+                auto mp = cast<CTrackMania>(GetApp());
+                if (mp !is null) mp.BackToMainMenu();
+            }
+            m_lastRaceState = -1;
+            m_finishArmed = false;
+            return;
+        }
+        m_kickedLabel = "";
 
         auto player = CurrentPlayer(app);
         if (player is null) { m_lastRaceState = -1; m_finishArmed = false; return; }
@@ -107,6 +128,10 @@ class GameState {
                    + " B=" + challenge.TMObjective_BronzeTime + ")");
         if (medal < int(Medal::Bronze)) return;
 
+        // Defense in depth: if the track went locked between load and finish (or
+        // the block-on-load kick lost a race), don't turn this into a check.
+        if (LockedNow()) { Log::Trace(m_currentLabel + " finished but locked -- ignoring"); return; }
+
         int64 prev = 0;
         m_bestMedalSeen.Get(m_currentLabel, prev);
         if (medal <= int(prev)) return;
@@ -138,6 +163,15 @@ class GameState {
             return player.CurCheckpointRaceTime;
         }
         return 0xFFFFFFFF;
+    }
+
+    // True only when we positively know the current campaign track is locked:
+    // client connected, item state synced, label not in the unlocked set. If the
+    // client is not ready we do NOT treat the track as locked (fail open).
+    private bool LockedNow() {
+        return m_currentLabel != ""
+            && g_client !is null && g_client.IsReady
+            && !g_client.items.IsTrackUnlocked(m_currentLabel);
     }
 
     private CTrackManiaPlayer@ CurrentPlayer(CGameCtnApp@ app) {

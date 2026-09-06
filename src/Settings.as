@@ -25,6 +25,12 @@ Medal S_RequiredMedal = Medal::Gold;
 [Setting category="Behaviour" name="Report goal complete automatically"]
 bool S_AutoGoal = true;
 
+[Setting category="Behaviour" name="Show the lock overlay on the campaign map screen"]
+bool S_CampaignOverlay = true;
+
+[Setting category="Behaviour" name="Send the player back to the menu when they enter a locked track"]
+bool S_BlockLockedTracks = true;
+
 [Setting category="Debug" name="Verbose protocol logging"]
 bool S_Trace = false;
 
