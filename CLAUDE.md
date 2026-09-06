@@ -178,14 +178,13 @@ If you change one of these, change it on both sides.
 
 ## Open items
 
-- **Track-lock enforcement UX.** Done and verified in-game (1920×1080):
-  `CampaignOverlay.as` draws a padlock on every locked tile of the campaign grid
-  (unlocked tiles get Bronze/Silver/Gold/Author pips for checked medals), and
-  `GameState.LockedNow()` calls `BackToMainMenu()` when the player loads a locked
-  campaign map (`S_BlockLockedTracks`); records untouched (run abandoned). Still
-  to check: the grid-rect calibration on other resolutions/aspects (re-tune with
-  the Debug sliders), and that `BackToMainMenu()` never writes a time (fallback:
-  `RequestLeavePlayground` / `CGamePlayground::Quit`).
+- **Track-lock enforcement UX — done, verified in-game (1920×1080).**
+  `CampaignOverlay.as` marks locked tracks with a padlock on both the series grid
+  and the track picker (unlocked tracks get Bronze/Silver/Gold/Author pips for
+  checked medals); `GameState.LockedNow()` calls `BackToMainMenu()` when the
+  player loads a locked campaign map (`S_BlockLockedTracks`) — confirmed it lands
+  cleanly and writes no time. Only remaining: the grid-rect / picker-slot
+  calibration is per-resolution (re-tune with the Debug sliders on other setups).
 - **Goal condition.** `ItemManager.CheckGoal()` fires on "all locations checked".
   It should read the goal from `slot_data` instead (the apworld sends `goal`).
 - **Medal-detection breadth.** Verified for one track; spot-check the finish
