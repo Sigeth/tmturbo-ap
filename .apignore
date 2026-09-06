@@ -1,0 +1,4 @@
+# Patterns excluded from the packaged trackmania_turbo.apworld (gitignore syntax).
+test/
+**/__pycache__/
+*.pyc
