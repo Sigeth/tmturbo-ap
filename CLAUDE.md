@@ -102,20 +102,30 @@ the online Openplanet docs describe the newer TM2020 build.
 - **No `Draw::` namespace.** Screen drawing is `nvg::` (only from a global
   `void Render()` — drawn even with the Openplanet overlay closed) or
   `UI::Get*DrawList()`.
-- **The campaign-grid overlay** (`src/ui/CampaignOverlay.as`): there is no menu
-  API, so `Render()` walks the Nadeo ManiaLink tree —
-  `cast<CTrackManiaMenus>(app.MenuManager).MenuCustom_CurrentManiaApp`,
-  scan `UILayers[]` (11 first) for a `LocalPage` frame with `ControlId
-  == "FrameAll_Buttons"`; its `Frame_Instance*` children are the 200 tiles
-  (row-major). Each tile's map number comes from its `MouseInput_Track_<R>:<C>`
-  child (`n = (R/2)*40 + (C/5)*10 + (R%2)*5 + (C%5) + 1`), its position from
-  `AbsolutePosition_V3` (ML space; tile is `48.21 × 45.0`, `y` up).
+- **The campaign overlay** (`src/ui/CampaignOverlay.as`, the plugin's only
+  `Render()`): no menu API, so it walks the Nadeo ManiaLink tree via
+  `cast<CTrackManiaMenus>(app.MenuManager).MenuCustom_CurrentManiaApp`.
+  - **Series-overview grid** (200 tiles): shown when `UILayers[12].IsVisible`
+    *and* layer 11's `Frame_AllBrowseTrack` is hidden. Tile geometry from layer
+    11: find frame `ControlId == "FrameAll_Buttons"`, its `Frame_Instance*`
+    children are the 200 tiles (row-major); map number from the
+    `MouseInput_Track_<R>:<C>` child
+    (`n = (R/2)*40 + (C/5)*10 + (R%2)*5 + (C%5) + 1`), position from
+    `AbsolutePosition_V3` (ML; tile `48.21 × 45.0`, `y` up). Layer 12's own tiles
+    use opaque ids; layer 11's positions coincide with layer 12's render.
+  - **Per-series track picker** (10 thumbnails): shown when layer 11's
+    `Frame_AllBrowseTrack.Visible`. Those tiles aren't reachable; read the series
+    from `FrameAll_Buttons.Controls[3]` (`Label_Diff0`) text and the environment
+    from which column `Frame_Selector` sits in, then draw at 10 fixed slots.
+  - layer 11's own `IsVisible` / frame-visible flags are IDENTICAL between the
+    series grid and the main menu — only `UILayers[12].IsVisible` /
+    `Frame_AllBrowseTrack.Visible` disambiguate the three states.
 - **ML → screen has no exposed transform** on this build (menu mouse coords
-  `CGameManiaApp.MouseX/Y` are a *different* space — do not use them to place an
-  overlay). The tile grid sits in a fixed ML rect `x∈[-120.28, 843.74]`,
-  `y∈[25.80, -424.20]`; we map it to a screen rect given as window fractions
-  (`S_GridL/T/R/B`), calibrated once by eye with the Debug "Overlay alignment"
-  sliders + box-preview, and persisted. Re-tune per resolution/aspect.
+  `CGameManiaApp.MouseX/Y` are a *different* space — do not use them). Both grids
+  are mapped into a screen rect given as window fractions (`S_GridL/T/R/B` for the
+  200-grid, `S_TpL/T/R/B` for the picker), calibrated once by eye with the Debug
+  "Overlay alignment" sliders + box-preview, and persisted. Re-tune per
+  resolution/aspect.
 - **Writing Nadeo ManiaLink control fields does NOT stick.** Every tile has a
   hidden native `Quad_Locked` (`locked-2x2.dds`); setting `.Visible = true` on it
   executes but the menu's own script re-hides it the same frame, so it never
@@ -148,7 +158,7 @@ the online Openplanet docs describe the newer TM2020 build.
 | `src/game/LocationManager.as` | finish → location id; dedupe; batched send; per-track checked-medal mask |
 | `src/game/ItemManager.as` | consumes `ReceivedItems`; client-enforced unlock set; per-seed persistence |
 | `src/ui/Window.as` | Status window + `RenderMenu()` entry |
-| `src/ui/CampaignOverlay.as` | `Render()` — nvg lock / medal-pip markers on the campaign map-selection screen |
+| `src/ui/CampaignOverlay.as` | `Render()` — nvg lock / medal-pip markers on the series grid *and* the per-series track picker |
 
 ## Naming contract with the `.apworld`
 

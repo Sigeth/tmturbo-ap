@@ -37,6 +37,12 @@ bool S_CampaignOverlay = true;
 [Setting hidden] float S_GridB = 0.858;
 [Setting hidden] bool S_GridDebug = false;
 
+// Track-picker screen: the 10 thumbnails (5 x 2), as window fractions.
+[Setting hidden] float S_TpL = 0.123;
+[Setting hidden] float S_TpT = 0.358;
+[Setting hidden] float S_TpR = 0.880;
+[Setting hidden] float S_TpB = 0.863;
+
 [Setting category="Behaviour" name="Send the player back to the menu when they enter a locked track"]
 bool S_BlockLockedTracks = true;
 

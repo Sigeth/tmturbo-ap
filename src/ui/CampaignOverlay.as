@@ -1,15 +1,18 @@
-// Draws lock / medal-progress markers straight onto Turbo's campaign
-// series-overview grid, one per tile, for all 200 campaign tracks.
+// Draws lock / medal-progress markers onto Turbo's campaign menus.
 //
 // Turbo has no menu API. Which screen is up:
-//   - series-overview grid (we draw here): UILayers[12].IsVisible
-//   - per-series track picker (don't draw): layer 11 Frame_AllBrowseTrack visible
-//   - anything else: layer 12 hidden
-// Tile geometry is read from layer 11's ManiaLink tree (find "FrameAll_Buttons",
-// iterate its "Frame_Instance*" children, map number from the
+//   - series-overview grid (200 tiles): UILayers[12].IsVisible
+//   - per-series track picker (10 thumbnails): layer 11 Frame_AllBrowseTrack visible
+//   - anything else: neither
+//
+// Series grid: tile geometry is read from layer 11's ManiaLink tree (find
+// "FrameAll_Buttons", iterate its "Frame_Instance*" children, map number from the
 // "MouseInput_Track_<row>:<col>" child, position from AbsolutePosition_V3) -- its
-// 200 tiles line up with what layer 12 renders, and layer 12's own tiles use
-// opaque ids.
+// 200 tiles line up with what layer 12 renders; layer 12's own tiles use opaque ids.
+//
+// Track picker: the 10 thumbnails aren't reachable as ManiaLink tiles. We read
+// the series ("Label_Diff0" text) and environment (which column "Frame_Selector"
+// sits in), then draw at 10 fixed slots (S_Tp* rect).
 //
 // The ManiaLink tile grid occupies a fixed rectangle in ML space (measured
 // in-game): x in [-120.28, 843.74], y in [25.80, -424.20] (y is up). We map that
@@ -102,10 +105,60 @@ namespace Overlay {
         string brt = "?";
         if (l11 !is null && l11.LocalPage !is null && l11.LocalPage.MainFrame !is null)
             brt = VB(FindFrameById(l11.LocalPage.MainFrame, "Frame_AllBrowseTrack", 0));
+        int ps = PickerState(mm);
+        string picker = ps < 0 ? "-" : ("" + (ps / 4) + "/" + (ps % 4));
+        string dest = (TilesFrame(mm) !is null) ? "  -> GRID"
+                    : (ps >= 0 ? "  -> PICKER" : "  -> off");
         return "L12.vis=" + (l12 !is null && l12.IsVisible ? "1" : "0")
             + " L11.vis=" + (l11 !is null && l11.IsVisible ? "1" : "0")
-            + " brt=" + brt
-            + (TilesFrame(mm) !is null ? "  -> DRAWING" : "  -> off");
+            + " brt=" + brt + " picker(s/e)=" + picker + dest;
+    }
+
+    // ---- track-picker screen (the 10-thumbnail per-series/env view) --------
+    // Not reachable as ManiaLink tiles; we detect series + environment and draw
+    // markers at 10 fixed slots (S_Tp* rect). series+env packed as series*4+env,
+    // or -1 when this screen is not up.
+    int PickerState(CGameManiaAppTitle@ m) {
+        if (m is null || m.UILayers.Length <= 11) return -1;
+        auto l11 = cast<CGameUILayer>(m.UILayers[11]);
+        if (l11 is null || l11.LocalPage is null || l11.LocalPage.MainFrame is null) return -1;
+        auto main = l11.LocalPage.MainFrame;
+
+        auto brt = FindFrameById(main, "Frame_AllBrowseTrack", 0);
+        if (brt is null || !brt.Visible) return -1;            // not the track picker
+
+        auto fab = FindFrameById(main, "FrameAll_Buttons", 0);
+        if (fab is null || fab.Controls.Length < 4) return -1;
+        auto diff = cast<CGameManialinkLabel>(fab.Controls[3]);   // "Label_Diff0"
+        if (diff is null) return -1;
+        string v = string(diff.Value);
+        int series = -1;
+        if      (v.Contains("White")) series = 0;
+        else if (v.Contains("Green")) series = 1;
+        else if (v.Contains("Blue"))  series = 2;
+        else if (v.Contains("Red"))   series = 3;
+        else if (v.Contains("Black")) series = 4;
+        if (series < 0) return -1;
+
+        auto sel = FindFrameById(main, "Frame_Selector", 0);
+        if (sel is null) return -1;
+        int col = int(Math::Round((sel.AbsolutePosition_V3.x - GRID_L) / TILE_W));
+        int env = col / 5;
+        if (env < 0) env = 0;
+        if (env > 3) env = 3;
+        return series * 4 + env;
+    }
+
+    // Slot k (0..9) rect on the track-picker screen.
+    void TpSlot(int k, float &out x, float &out y, float &out w, float &out h) {
+        float sw = float(Display::GetWidth());
+        float sh = float(Display::GetHeight());
+        float cw = (S_TpR - S_TpL) / 5.0f;
+        float rh = (S_TpB - S_TpT) / 2.0f;
+        x = (S_TpL + (k % 5) * cw) * sw;
+        y = (S_TpT + (k / 5) * rh) * sh;
+        w = cw * sw;
+        h = rh * sh;
     }
 
     // "MouseInput_Track_R:C" -> 1..200, or 0.
@@ -199,11 +252,30 @@ void Render() {
     auto m = menu.MenuCustom_CurrentManiaApp;
     if (m is null) return;
 
-    auto tiles = Overlay::TilesFrame(m);
-    if (tiles is null) return;
-
     float sw = float(Display::GetWidth());
     float sh = float(Display::GetHeight());
+
+    auto tiles = Overlay::TilesFrame(m);
+    if (tiles is null) {
+        // Not the series grid -- try the per-series track-picker screen.
+        int ps = Overlay::PickerState(m);
+        if (ps < 0) return;
+        int series = ps / 4;
+        int env = ps % 4;
+        for (int k = 0; k < 10; k++) {
+            int n = series * 40 + env * 10 + k + 1;
+            if (n < 1 || n > 200) continue;
+            string lbl = TrackLabel(n);
+            float x = 0, y = 0, w = 0, h = 0;
+            Overlay::TpSlot(k, x, y, w, h);
+            if (S_GridDebug) { Overlay::DrawBox(x, y, w, h, vec4(0, 1, 1, 0.9)); continue; }
+            if (g_client.items.IsTrackUnlocked(lbl))
+                Overlay::DrawPips(x, y, w, h, g_client.locations.CheckedMedalMask(lbl));
+            else
+                Overlay::DrawLock(x, y, w, h);
+        }
+        return;
+    }
 
     for (uint i = 0; i < tiles.Controls.Length; i++) {
         auto tile = cast<CGameManialinkFrame>(tiles.Controls[i]);

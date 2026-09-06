@@ -30,11 +30,20 @@ void RenderInterface() {
             UI::TextDisabled("aspect): open the campaign grid, tick 'boxes',");
             UI::TextDisabled("drag until the boxes sit on the tiles.");
             S_GridDebug = UI::Checkbox("Show tile boxes", S_GridDebug);
-            S_GridL = UI::SliderFloat("Left",   S_GridL, 0.0f, 0.6f);
-            S_GridR = UI::SliderFloat("Right",  S_GridR, 0.5f, 1.2f);
-            S_GridT = UI::SliderFloat("Top",    S_GridT, 0.0f, 0.6f);
-            S_GridB = UI::SliderFloat("Bottom", S_GridB, 0.5f, 1.2f);
-            if (UI::Button("Reset")) { S_GridL = 0.275f; S_GridR = 0.877f; S_GridT = 0.235f; S_GridB = 0.858f; }
+            UI::TextDisabled("Series grid:");
+            S_GridL = UI::SliderFloat("Left##g",   S_GridL, 0.0f, 0.6f);
+            S_GridR = UI::SliderFloat("Right##g",  S_GridR, 0.5f, 1.2f);
+            S_GridT = UI::SliderFloat("Top##g",    S_GridT, 0.0f, 0.6f);
+            S_GridB = UI::SliderFloat("Bottom##g", S_GridB, 0.5f, 1.2f);
+            UI::TextDisabled("Track picker (10 tiles):");
+            S_TpL = UI::SliderFloat("Left##t",   S_TpL, 0.0f, 0.5f);
+            S_TpR = UI::SliderFloat("Right##t",  S_TpR, 0.5f, 1.2f);
+            S_TpT = UI::SliderFloat("Top##t",    S_TpT, 0.0f, 0.6f);
+            S_TpB = UI::SliderFloat("Bottom##t", S_TpB, 0.5f, 1.2f);
+            if (UI::Button("Reset")) {
+                S_GridL = 0.275f; S_GridR = 0.877f; S_GridT = 0.235f; S_GridB = 0.858f;
+                S_TpL = 0.123f; S_TpR = 0.880f; S_TpT = 0.358f; S_TpB = 0.863f;
+            }
         }
     }
     UI::End();
