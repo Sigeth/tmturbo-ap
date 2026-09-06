@@ -1,1 +1,5 @@
-0.6.7
+# Archipelago core version the apworld is tested against in CI.
+#   stable   -> the latest non-prerelease ArchipelagoMW/Archipelago release
+#              (what archipelago.gg hosts games on)
+#   X.Y.Z    -> pin exactly (e.g. to reproduce a build or freeze during a break)
+stable

@@ -37,8 +37,31 @@ the wire.
 
 ## Packaging
 
-Zip the folder contents (with `info.toml` at the root) and rename to
-`Archipelago.op`.
+Releases are automated. Conventional-commit pushes to `main` let
+[release-please](https://github.com/googleapis/release-please) open a release PR;
+merging it tags `vX.Y.Z` and the `release-please` workflow attaches two assets to
+the GitHub Release:
+
+- `Archipelago.op` — the Openplanet plugin (`info.toml` + `src/` zipped).
+- `trackmania_turbo.apworld` — the matching Archipelago world (from `apworld/`).
+
+Both carry the same version. The version stays in `0.x` for features and fixes;
+the first `feat!:` / `BREAKING CHANGE:` commit bumps it to `1.0.0`.
+
+Publishing the `.op` to [openplanet.dev](https://openplanet.dev) is still a manual
+upload — download it from the Release and upload it on the site.
+
+To build a `.op` by hand: zip the folder contents (with `info.toml` at the root)
+and rename to `Archipelago.op`.
+
+## The `apworld/` folder
+
+`apworld/trackmania_turbo/` is the source of truth for the Archipelago world (the
+server half). It ships in this repo so the two halves version together and share
+one home for the [naming contract](#naming-contract-with-the-apworld). CI runs its
+tests on every push (and weekly) against the Archipelago core named by
+`apworld/.ap-version` — `stable` by default, meaning the latest release, the one
+archipelago.gg hosts games on. It is never included in `Archipelago.op`.
 
 ## Naming contract with the `.apworld`
 
@@ -64,3 +87,9 @@ These strings must match on both sides:
   - `game/` — `GameState` (engine reads), `TrackTable` (map number → label),
     `LocationManager`, `ItemManager`.
   - `ui/Window.as` — status window.
+- `apworld/` — the Archipelago world (Python), shipped and released alongside the
+  plugin; never part of `Archipelago.op`.
+- `tools/lint.py` — static checks for the `.as` sources (no compiler exists
+  outside Openplanet); run by CI.
+- `.github/workflows/` — `ci.yml` (lint + apworld tests + package check on every
+  push and weekly), `release-please.yml` (release PR, tag, and asset publishing).
