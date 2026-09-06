@@ -90,5 +90,6 @@ jobs:
       - name: Generate smoke (example YAML)
         working-directory: archipelago
         run: |
+          mkdir -p Players
           cp "../apworld/examples/Trackmania Turbo.yaml" Players/
           python Generate.py --skip_output --seed 1
