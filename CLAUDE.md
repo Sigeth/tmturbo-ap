@@ -10,8 +10,10 @@ track becomes an Archipelago *location check*; *items* received from the
 multiworld unlock campaign tracks, enforced client-side because Turbo exposes no
 unlock API.
 
-The server side is a separate `trackmania_turbo` **.apworld** (not in this repo).
-The strings in "Naming contract" below are what the two halves agree on.
+The server side is the `trackmania_turbo` **.apworld**, whose source lives in this
+repo under `apworld/trackmania_turbo/` (shipped and versioned together with the
+plugin — see "Packaging" below). The strings in "Naming contract" below are what
+the two halves agree on.
 
 ## Build / run / test
 
@@ -35,6 +37,42 @@ useful independent observer.
 
 Style: 4-space indent, `PascalCase` methods, `m_` private fields, `S_` settings,
 `g_` globals. No linter — match the surrounding file.
+
+## Packaging / releases
+
+- **One version, two artifacts.** `info.toml` `meta.version`,
+  `apworld/trackmania_turbo/archipelago.json` `world_version`, and that world's
+  `__init__.py` `__version__` are kept identical — `tools/lint.py` (run by CI)
+  fails the build if they drift.
+- **release-please** (`.github/workflows/release-please.yml`, config in
+  `release-please-config.json` + `.release-please-manifest.json`) reads the
+  conventional-commit log on `main`, opens a "release X.Y.Z" PR that bumps all
+  three version spots + `CHANGELOG.md`; merging it tags `vX.Y.Z` and the `publish`
+  job attaches `Archipelago.op` (`info.toml` + `src/`) and
+  `trackmania_turbo.apworld` (the `apworld/trackmania_turbo/` folder, minus
+  `test/` and `__pycache__`) to the Release.
+- Pre-1.0: `feat:` → minor, `fix:` → patch, `feat!:` / `BREAKING CHANGE:` →
+  `1.0.0`. So use `!` deliberately — it is the trigger for the first major.
+- The manifest is seeded at `0.0.0`, so the first release PR release-please opens
+  is `0.1.0` (feat commits in history → one minor bump). After that it tracks the
+  real released version. `info.toml` / `archipelago.json` / `__init__.py` already
+  read `0.1.0`; release-please rewrites them on each release.
+- `ci.yml` runs on every push/PR (and weekly, Mon 06:00 UTC):
+  - `plugin` job — `tools/lint.py` then trial-zips the `.op`.
+  - `apworld` job — resolves `apworld/.ap-version` (`stable` → the latest
+    non-prerelease Archipelago release, i.e. what archipelago.gg hosts on; or an
+    explicit `X.Y.Z` pin), checks that core out, drops the world in, runs
+    `pytest worlds/trackmania_turbo/test test/general -k Trackmania` + a
+    `Generate.py` smoke. The weekly run is what catches a new stable core
+    release breaking the world with no commit here.
+- **No AngelScript compiler in CI.** Openplanet compiles `src/**.as` at load and
+  there is no standalone/headless Openplanet-AngelScript compiler (the
+  vscode-openplanet-angelscript / angel-lsp language servers are editor-only).
+  `tools/lint.py` is the substitute: bracket balance (a guaranteed load failure),
+  UTF-8 / LF / tab / trailing-whitespace hygiene, `info.toml` shape, the 3-way
+  version check, and warns on documented API traps (`Draw::`, `Net::WebSocket`
+  outside `Transport.as`). A real compile still only happens on `Reload plugin`.
+- Openplanet-registry upload of the `.op` stays manual.
 
 ## Architecture
 

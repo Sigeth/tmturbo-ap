@@ -1,7 +1,12 @@
-# Openplanet packaging output
+# Packaging output (plugin + apworld)
 *.op
+*.apworld
 /build/
 /dist/
+
+# Python
+__pycache__/
+*.py[cod]
 
 # Editor / OS
 .vscode/

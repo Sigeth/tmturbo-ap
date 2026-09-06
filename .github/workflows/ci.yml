@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays 06:00 UTC — catch a new stable Archipelago release breaking the world
+    # even when nothing in this repo changed.
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    name: plugin — lint + package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Static checks (tools/lint.py)
+        run: python tools/lint.py
+
+      - name: Trial-package the .op
+        run: |
+          zip -r /tmp/Archipelago.op info.toml src -x '*.DS_Store'
+          unzip -l /tmp/Archipelago.op
+
+  apworld:
+    name: apworld — tests + generate
+    runs-on: ubuntu-latest
+    env:
+      # Deps are installed explicitly below; stop ModuleUpdate from prompting
+      # (an interactive prompt on a runner hangs until timeout).
+      SKIP_REQUIREMENTS_UPDATE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve Archipelago core ref
+        id: ap
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pin="$(grep -vE '^[[:space:]]*(#|$)' apworld/.ap-version | head -1 | tr -d '[:space:]' || true)"
+          if [ -z "$pin" ] || [ "$pin" = "stable" ]; then
+            ref="$(gh api repos/ArchipelagoMW/Archipelago/releases/latest -q .tag_name)"
+            echo "apworld/.ap-version = '$pin' -> latest stable release $ref"
+          else
+            ref="$pin"
+            echo "apworld/.ap-version pins $ref"
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Archipelago core
+        uses: actions/checkout@v4
+        with:
+          repository: ArchipelagoMW/Archipelago
+          ref: ${{ steps.ap.outputs.ref }}
+          path: archipelago
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            archipelago/requirements.txt
+            archipelago/ci-requirements.txt
+
+      - name: Install Archipelago + test requirements
+        working-directory: archipelago
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          # ci-requirements.txt (pytest + xdist) is what Archipelago's own CI uses;
+          # fall back in case a future release renames it.
+          pip install -r ci-requirements.txt || pip install "pytest>=8" pytest-xdist pytest-subtests
+          python Launcher.py --update_settings || true   # best-effort: create host.yaml for the suite
+
+      - name: Drop the world into the core checkout
+        run: cp -r apworld/trackmania_turbo archipelago/worlds/trackmania_turbo
+
+      - name: World tests + generic world suite
+        working-directory: archipelago
+        run: python -m pytest worlds/trackmania_turbo/test test/general -k Trackmania -q -n auto
+
+      - name: Generate smoke (example YAML)
+        working-directory: archipelago
+        run: |
+          mkdir -p Players
+          cp "../apworld/examples/Trackmania Turbo.yaml" Players/
+          python Generate.py --skip_output --seed 1
