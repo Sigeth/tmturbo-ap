@@ -28,6 +28,15 @@ bool S_AutoGoal = true;
 [Setting category="Behaviour" name="Show the lock overlay on the campaign map screen"]
 bool S_CampaignOverlay = true;
 
+// Campaign grid rectangle on screen, as fractions of the window. The ManiaLink
+// tile coordinates are mapped linearly into this rectangle. Tune with the
+// sliders in the Archipelago window's Debug section, then these persist.
+[Setting hidden] float S_GridL = 0.275;
+[Setting hidden] float S_GridT = 0.235;
+[Setting hidden] float S_GridR = 0.877;
+[Setting hidden] float S_GridB = 0.858;
+[Setting hidden] bool S_GridDebug = false;
+
 [Setting category="Behaviour" name="Send the player back to the menu when they enter a locked track"]
 bool S_BlockLockedTracks = true;
 

@@ -102,16 +102,24 @@ the online Openplanet docs describe the newer TM2020 build.
 - **No `Draw::` namespace.** Screen drawing is `nvg::` (only from a global
   `void Render()` — drawn even with the Openplanet overlay closed) or
   `UI::Get*DrawList()`.
-- **Reading the campaign map-selection screen** (`src/ui/CampaignOverlay.as`):
-  there is no menu API, so it walks the Nadeo ManiaLink tree —
-  `cast<CTrackManiaMenus>(app.MenuManager).MenuCustom_CurrentManiaApp
-  .UILayers[11]` → `.LocalPage.MainFrame` → `Controls[0][4][1][2][1]` →
-  `Controls[3]` label for the tier, `Controls[20/25/30/35]` frames with
-  `AbsolutePosition_V3.x == -120` for the selected environment. These indices and
-  the hard-coded 16:9 slot positions are copied from the **TurboSkillpoints**
-  plugin (installed under `Plugins/`), which is the reference for menu overlays on
-  this build. Brittle across game/menu updates and wrong on non-16:9 — every cast
-  is null-guarded so it degrades to "no overlay".
+- **The campaign-grid overlay** (`src/ui/CampaignOverlay.as`): there is no menu
+  API, so `Render()` walks the Nadeo ManiaLink tree —
+  `cast<CTrackManiaMenus>(app.MenuManager).MenuCustom_CurrentManiaApp`,
+  scan `UILayers[]` (11 first) for a `LocalPage` frame with `ControlId
+  == "FrameAll_Buttons"`; its `Frame_Instance*` children are the 200 tiles
+  (row-major). Each tile's map number comes from its `MouseInput_Track_<R>:<C>`
+  child (`n = (R/2)*40 + (C/5)*10 + (R%2)*5 + (C%5) + 1`), its position from
+  `AbsolutePosition_V3` (ML space; tile is `48.21 × 45.0`, `y` up).
+- **ML → screen has no exposed transform** on this build (menu mouse coords
+  `CGameManiaApp.MouseX/Y` are a *different* space — do not use them to place an
+  overlay). The tile grid sits in a fixed ML rect `x∈[-120.28, 843.74]`,
+  `y∈[25.80, -424.20]`; we map it to a screen rect given as window fractions
+  (`S_GridL/T/R/B`), calibrated once by eye with the Debug "Overlay alignment"
+  sliders + box-preview, and persisted. Re-tune per resolution/aspect.
+- **Writing Nadeo ManiaLink control fields does NOT stick.** Every tile has a
+  hidden native `Quad_Locked` (`locked-2x2.dds`); setting `.Visible = true` on it
+  executes but the menu's own script re-hides it the same frame, so it never
+  renders. No MLHook for Turbo. Overlays must be *drawn* (`nvg`), not injected.
 
 ### Archipelago protocol notes
 
@@ -160,15 +168,14 @@ If you change one of these, change it on both sides.
 
 ## Open items
 
-- **Track-lock enforcement UX.** Done (pending in-game verification):
-  `CampaignOverlay.as` marks locked tiles on the campaign screen with a padlock
+- **Track-lock enforcement UX.** Done and verified in-game (1920×1080):
+  `CampaignOverlay.as` draws a padlock on every locked tile of the campaign grid
   (unlocked tiles get Bronze/Silver/Gold/Author pips for checked medals), and
   `GameState.LockedNow()` calls `BackToMainMenu()` when the player loads a locked
-  campaign map (gated on `S_BlockLockedTracks`). Records are untouched — the run
-  is abandoned, never finished. VERIFY: the ManiaLink tree walk + slot positions
-  on this install, and that `BackToMainMenu()` from a loading solo playground
-  writes no time and lands cleanly (fallback: `Stations` `RequestLeavePlayground`
-  or `CGamePlayground::Quit`).
+  campaign map (`S_BlockLockedTracks`); records untouched (run abandoned). Still
+  to check: the grid-rect calibration on other resolutions/aspects (re-tune with
+  the Debug sliders), and that `BackToMainMenu()` never writes a time (fallback:
+  `RequestLeavePlayground` / `CGamePlayground::Quit`).
 - **Goal condition.** `ItemManager.CheckGoal()` fires on "all locations checked".
   It should read the goal from `slot_data` instead (the apworld sends `goal`).
 - **Medal-detection breadth.** Verified for one track; spot-check the finish

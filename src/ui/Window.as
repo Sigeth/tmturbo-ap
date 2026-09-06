@@ -23,6 +23,18 @@ void RenderInterface() {
         RenderConnectionForm();
         UI::Separator();
         RenderProgress();
+        UI::Separator();
+        if (UI::CollapsingHeader("Overlay alignment")) {
+            UI::TextDisabled("If the overlay is off (different resolution or");
+            UI::TextDisabled("aspect): open the campaign grid, tick 'boxes',");
+            UI::TextDisabled("drag until the boxes sit on the tiles.");
+            S_GridDebug = UI::Checkbox("Show tile boxes", S_GridDebug);
+            S_GridL = UI::SliderFloat("Left",   S_GridL, 0.0f, 0.6f);
+            S_GridR = UI::SliderFloat("Right",  S_GridR, 0.5f, 1.2f);
+            S_GridT = UI::SliderFloat("Top",    S_GridT, 0.0f, 0.6f);
+            S_GridB = UI::SliderFloat("Bottom", S_GridB, 0.5f, 1.2f);
+            if (UI::Button("Reset")) { S_GridL = 0.275f; S_GridR = 0.877f; S_GridT = 0.235f; S_GridB = 0.858f; }
+        }
     }
     UI::End();
 }
