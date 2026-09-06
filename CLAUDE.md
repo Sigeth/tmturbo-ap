@@ -141,6 +141,10 @@ the online Openplanet docs describe the newer TM2020 build.
 - `ReceivedItems.index == 0` = full replay — reset local item state first. A
   non-zero `index != m_nextIndex` = a gap → send `Sync`.
 - Location sends are optimistic; `RoomUpdate.checked_locations` is the confirmation.
+- `PrintJSON` is the room feed (chat, item routing, hints, joins). `ApClient`
+  colourises the `data` parts into `chatLog` (`FormatPart` resolves `player_id`
+  via the slot→alias map, `item_id` / `location_id` via the data package) and the
+  chat panel sends `Say` for plain lines *and* server commands (`!hint`, `!help`).
 
 ### Files
 
@@ -157,7 +161,7 @@ the online Openplanet docs describe the newer TM2020 build.
 | `src/game/TrackTable.as` | Campaign map number (1–200) ⇄ `"<Tier> <Env> NN"` label |
 | `src/game/LocationManager.as` | finish → location id; dedupe; batched send; per-track checked-medal mask |
 | `src/game/ItemManager.as` | consumes `ReceivedItems`; client-enforced unlock set; per-seed persistence |
-| `src/ui/Window.as` | Status window + `RenderMenu()` entry |
+| `src/ui/Window.as` | Status window + `RenderMenu()` entry + chat panel (log view + input; sends `Say`) |
 | `src/ui/CampaignOverlay.as` | `Render()` — nvg lock / medal-pip markers on the series grid *and* the per-series track picker |
 
 ## Naming contract with the `.apworld`

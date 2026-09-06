@@ -16,13 +16,15 @@ void RenderMenu() {
 void RenderInterface() {
     if (!S_WindowOpen || g_client is null) return;
 
-    UI::SetNextWindowSize(360, 340, UI::Cond::FirstUseEver);
+    UI::SetNextWindowSize(380, 500, UI::Cond::FirstUseEver);
     if (UI::Begin("Archipelago", S_WindowOpen)) {
         RenderStatusLine();
         UI::Separator();
         RenderConnectionForm();
         UI::Separator();
         RenderProgress();
+        UI::Separator();
+        RenderChat();
         UI::Separator();
         if (UI::CollapsingHeader("Overlay alignment")) {
             UI::TextWrapped(Overlay::DebugStatus());
@@ -122,6 +124,45 @@ void RenderProgress() {
         UI::Text("Current: " + labelName
                  + (unlocked ? "  \\$3f3[unlocked]" : "  \\$f33[locked]"));
     }
+}
+
+// ---- chat -----------------------------------------------------------------
+
+string g_chatDraft;
+bool g_chatRefocus = false;
+
+void RenderChat() {
+    UI::Text("Chat");
+
+    // Message log: fixed-height scroll region, sticks to the bottom on new lines.
+    if (UI::BeginChild("ap_chat_log", vec2(0, 150), true)) {
+        if (g_client.chatLog.Length == 0) UI::TextDisabled("No messages yet.");
+        for (uint i = 0; i < g_client.chatLog.Length; i++) UI::TextWrapped(g_client.chatLog[i]);
+        if (g_client.chatDirty) {
+            UI::SetScrollHereY(1.0f);
+            g_client.chatDirty = false;
+        }
+    }
+    UI::EndChild();
+
+    bool ready = g_client.IsReady;
+    UI::BeginDisabled(!ready);
+    if (g_chatRefocus) { UI::SetKeyboardFocusHere(); g_chatRefocus = false; }
+    UI::PushItemWidth(-60);
+    bool submitted = false;
+    g_chatDraft = UI::InputText("##ap_chat_in", g_chatDraft, submitted,
+                                UI::InputTextFlags::EnterReturnsTrue);
+    UI::PopItemWidth();
+    UI::SameLine();
+    bool clicked = UI::Button("Send");
+    UI::EndDisabled();
+
+    if (ready && (submitted || clicked) && g_chatDraft.Trim() != "") {
+        g_client.Say(g_chatDraft);
+        g_chatDraft = "";
+        g_chatRefocus = true;
+    }
+    UI::TextDisabled("Tip: server commands work here too, e.g. !hint, !help");
 }
 
 // Lowest block index that is not unlocked yet, or -1 if all are.

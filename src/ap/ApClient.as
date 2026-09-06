@@ -6,6 +6,9 @@
 //
 // Drive it by calling Update() once per frame (Main.as does this from a coroutine).
 
+// Cap on the rolling chat buffer kept for the UI.
+const uint AP_CHAT_CAP = 300;
+
 namespace Ap {
     enum Phase {
         Disconnected,   // no socket
@@ -33,6 +36,12 @@ class ApClient {
     // room metadata surfaced to the UI
     string seedName;
     array<string> playerNames;
+    private dictionary m_slotToAlias;   // string(slot) -> alias, for PrintJSON
+
+    // Rolling server-chat / event feed for the UI (Openplanet colour codes baked
+    // in). Capped; chatDirty tells the window to scroll to the bottom.
+    array<string> chatLog;
+    bool chatDirty = false;
 
     Ap::Phase get_Phase() const { return m_phase; }
     string get_LastError() const { return m_lastError; }
@@ -55,6 +64,8 @@ class ApClient {
         m_slotNr = -1;
         locations.Reset();
         items.Reset();
+        chatLog.Resize(0);
+        chatDirty = true;
         transport.Connect(ServerUrl());
         m_phase = Ap::Phase::Socket;
     }
@@ -68,6 +79,20 @@ class ApClient {
     void SendLocationChecks(const array<int> &in ids) {
         if (!IsReady || ids.Length == 0) return;
         transport.Send(Packet::LocationChecks(ids));
+    }
+
+    // Send a chat line (or a server command like "!hint 30") to the room.
+    void Say(const string &in text) {
+        string t = text.Trim();
+        if (t == "") return;
+        if (!IsReady) { AppendChat("\\$f55[chat] not connected"); return; }
+        transport.Send(Packet::Say(t));
+    }
+
+    void AppendChat(const string &in line) {
+        chatLog.InsertLast(line);
+        if (chatLog.Length > AP_CHAT_CAP) chatLog.RemoveAt(0);
+        chatDirty = true;
     }
 
     void ReportGoal() {
@@ -150,8 +175,13 @@ class ApClient {
         @m_slotData = cmd.HasKey("slot_data") ? cmd["slot_data"] : Json::Object();
 
         playerNames.Resize(0);
+        m_slotToAlias.DeleteAll();
         Json::Value@ players = cmd["players"];
-        for (uint i = 0; i < players.Length; i++) playerNames.InsertLast(string(players[i]["alias"]));
+        for (uint i = 0; i < players.Length; i++) {
+            string alias = players[i]["alias"];
+            playerNames.InsertLast(alias);
+            if (players[i].HasKey("slot")) m_slotToAlias.Set(tostring(int(players[i]["slot"])), alias);
+        }
 
         // Apply slot_data (unlock style, goal, thresholds) and restore the
         // per-seed finished-track set before seeding from the server. Item /
@@ -184,11 +214,72 @@ class ApClient {
     }
 
     private void OnPrintJson(Json::Value@ cmd) {
-        // Server chat / item routing feed. Render only the plain text parts.
-        string line;
+        // Server chat / item routing / hint feed. Build a colourised line for the
+        // chat window and a plain one for the Openplanet log.
         Json::Value@ parts = cmd["data"];
-        for (uint i = 0; i < parts.Length; i++) line += string(parts[i]["text"]);
-        Log::Info(line);
+        string coloured;
+        string plain;
+        for (uint i = 0; i < parts.Length; i++) {
+            Json::Value@ part = parts[i];
+            string text = part.HasKey("text") ? string(part["text"]) : "";
+            string type = part.HasKey("type") ? string(part["type"]) : "text";
+            plain += text;
+            coloured += FormatPart(part, type, text);
+        }
+        AppendChat(coloured);
+        Log::Info(plain);
+    }
+
+    // One JSONMessagePart -> a string with Openplanet ("\\$rgb") colour codes.
+    private string FormatPart(Json::Value@ part, const string &in type, const string &in text) {
+        if (type == "player_id") {
+            string alias;
+            if (!m_slotToAlias.Get(text, alias)) alias = "Player " + text;
+            bool me = m_slotNr >= 0 && text == tostring(m_slotNr);
+            return (me ? "\\$fd4" : "\\$fb5") + alias + "\\$z";
+        }
+        if (type == "item_id" || type == "item_name") {
+            int flags = part.HasKey("flags") ? int(part["flags"]) : 0;
+            string col = "\\$5cf";
+            if ((flags & 1) != 0)      col = "\\$a6f";   // progression
+            else if ((flags & 2) != 0) col = "\\$6cf";   // useful
+            else if ((flags & 4) != 0) col = "\\$f66";   // trap
+            string name = text;
+            int id;
+            if (type == "item_id" && Text::TryParseInt(text, id)) name = data.ItemName(id);
+            return col + name + "\\$z";
+        }
+        if (type == "location_id" || type == "location_name") {
+            string name = text;
+            int id;
+            if (type == "location_id" && Text::TryParseInt(text, id)) name = data.LocationName(id);
+            return "\\$3d7" + name + "\\$z";
+        }
+        if (type == "entrance_name") return "\\$5bf" + text + "\\$z";
+        if (part.HasKey("color")) return ApColour(string(part["color"])) + text + "\\$z";
+        return text;
+    }
+
+    // AP colour tokens are ";"-separated (e.g. "bold;red"). Map each to an
+    // Openplanet formatting code; unknown tokens are ignored.
+    private string ApColour(const string &in spec) {
+        string codes;
+        array<string>@ toks = spec.Split(";");
+        for (uint i = 0; i < toks.Length; i++) {
+            string c = toks[i];
+            if      (c == "red"    || c == "salmon")                 codes += "\\$f55";
+            else if (c == "green")                                   codes += "\\$5f8";
+            else if (c == "yellow")                                  codes += "\\$fd4";
+            else if (c == "blue"   || c == "slateblue")              codes += "\\$68f";
+            else if (c == "magenta"|| c == "plum")                   codes += "\\$f5f";
+            else if (c == "cyan")                                    codes += "\\$5ff";
+            else if (c == "orange")                                  codes += "\\$f70";
+            else if (c == "white")                                   codes += "\\$fff";
+            else if (c == "black")                                   codes += "\\$888";
+            else if (c == "bold")                                    codes += "\\$o";
+            else if (c == "underline")                               codes += "\\$u";
+        }
+        return codes;
     }
 
     private void SetError(const string &in why) {

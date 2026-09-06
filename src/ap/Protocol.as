@@ -49,6 +49,14 @@ namespace Packet {
         return WrapArray(p);
     }
 
+    // Chat line or server command (anything starting with "!", e.g. "!hint").
+    string Say(const string &in text) {
+        Json::Value@ p = Json::Object();
+        p["cmd"]  = "Say";
+        p["text"] = text;
+        return WrapArray(p);
+    }
+
     string LocationChecks(const array<int> &in locationIds) {
         Json::Value@ p = Json::Object();
         p["cmd"] = "LocationChecks";
