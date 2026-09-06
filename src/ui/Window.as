@@ -95,14 +95,39 @@ void RenderConnectionForm() {
 void RenderProgress() {
     if (!g_client.IsReady) return;
     auto loc = g_client.locations;
+    auto items = g_client.items;
     float frac = loc.TotalCount > 0 ? float(loc.CheckedCount) / loc.TotalCount : 0;
     UI::ProgressBar(frac, vec2(-1, 0), loc.CheckedCount + " / " + loc.TotalCount + " checks");
-    UI::Text("Tracks unlocked: " + g_client.items.UnlockedTrackCount());
+    UI::Text("Tracks unlocked: " + items.UnlockedTrackCount());
+
+    if (items.VanillaMode()) {
+        UI::Text("Medals  \\$c94B:" + items.MedalCount(Medal::Bronze)
+                 + "  \\$bbbS:" + items.MedalCount(Medal::Silver)
+                 + "  \\$fd4G:" + items.MedalCount(Medal::Gold));
+        UI::Text("Finished: " + loc.FinishedCountAll() + " / 200");
+        int nextBlock = FirstLockedBlock();
+        if (nextBlock >= 0) {
+            Medal g = BlockGrade(nextBlock);
+            int need = items.BlockThreshold(nextBlock) - items.MedalCount(g);
+            UI::Text("Next: " + BlockName(nextBlock) + "  (need " + need + " more "
+                     + MEDAL_SUFFIX[int(g)] + ")");
+        } else {
+            UI::Text("\\$3f3All 20 blocks unlocked");
+        }
+    }
 
     string labelName = g_gameState !is null ? g_gameState.CurrentTrackLabel : "";
     if (labelName != "") {
-        bool unlocked = g_client.items.IsTrackUnlocked(labelName);
+        bool unlocked = items.IsTrackUnlocked(labelName);
         UI::Text("Current: " + labelName
                  + (unlocked ? "  \\$3f3[unlocked]" : "  \\$f33[locked]"));
     }
+}
+
+// Lowest block index that is not unlocked yet, or -1 if all are.
+int FirstLockedBlock() {
+    for (int i = 1; i < BLOCK_COUNT; i++) {
+        if (!g_client.items.IsBlockUnlocked(i)) return i;
+    }
+    return -1;
 }

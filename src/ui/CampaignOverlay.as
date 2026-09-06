@@ -273,14 +273,13 @@ void Render() {
         for (int k = 0; k < 10; k++) {
             int n = series * 40 + env * 10 + k + 1;
             if (n < 1 || n > 200) continue;
-            string lbl = TrackLabel(n);
             float x = 0, y = 0, w = 0, h = 0;
             Overlay::TpSlot(k, x, y, w, h);
             if (S_GridDebug) { Overlay::DrawBox(x, y, w, h, vec4(0, 1, 1, 0.9)); continue; }
-            if (g_client.items.IsTrackUnlocked(lbl))
+            if (g_client.items.IsTrackUnlockedByNumber(n))
                 Overlay::DrawPips(x, y, w, h,
-                    g_client.locations.AvailableMedalMask(lbl),
-                    g_client.locations.CheckedMedalMask(lbl));
+                    g_client.locations.AvailMaskForNumber(n),
+                    g_client.locations.CheckedMaskForNumber(n));
             else
                 Overlay::DrawLock(x, y, w, h);
         }
@@ -293,7 +292,6 @@ void Render() {
 
         int n = Overlay::MapNumber(tile);
         if (n < 1 || n > 200) continue;
-        string label = TrackLabel(n);
 
         vec2 ml = tile.AbsolutePosition_V3;                       // ML top-left
         vec2 tl = Overlay::ToScreen(ml.x, ml.y);
@@ -308,10 +306,10 @@ void Render() {
             Overlay::DrawBox(x, y, w, hgt, vec4(1, 0, 1, 0.9));
             continue;
         }
-        if (g_client.items.IsTrackUnlocked(label)) {
+        if (g_client.items.IsTrackUnlockedByNumber(n)) {
             Overlay::DrawPips(x, y, w, hgt,
-                g_client.locations.AvailableMedalMask(label),
-                g_client.locations.CheckedMedalMask(label));
+                g_client.locations.AvailMaskForNumber(n),
+                g_client.locations.CheckedMaskForNumber(n));
         } else {
             Overlay::DrawLock(x, y, w, hgt);
         }

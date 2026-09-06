@@ -34,6 +34,7 @@ class FinishEvent {
 
 class GameState {
     private dictionary m_bestMedalSeen;   // trackLabel -> int64 (Medal 1..4)
+    private dictionary m_finishedSeen;    // trackLabel -> true (crossed the line, any medal or none)
     private string m_currentUid;
     private string m_currentLabel;
     private string m_lastTracedLabel;
@@ -126,16 +127,23 @@ class GameState {
                    + " G=" + challenge.TMObjective_GoldTime
                    + " S=" + challenge.TMObjective_SilverTime
                    + " B=" + challenge.TMObjective_BronzeTime + ")");
-        if (medal < int(Medal::Bronze)) return;
 
         // Defense in depth: if the track went locked between load and finish (or
         // the block-on-load kick lost a race), don't turn this into a check.
         if (LockedNow()) { Log::Trace(m_currentLabel + " finished but locked -- ignoring"); return; }
 
+        // Fire on the first time we see this track finish (any medal, or none --
+        // vanilla mode counts a bare finish for the milestone / goal), and again
+        // whenever the medal improves (so a later Gold arms its check).
+        bool firstFinish = !m_finishedSeen.Exists(m_currentLabel);
+        m_finishedSeen.Set(m_currentLabel, true);
+
         int64 prev = 0;
         m_bestMedalSeen.Get(m_currentLabel, prev);
-        if (medal <= int(prev)) return;
-        m_bestMedalSeen.Set(m_currentLabel, int64(medal));
+        bool improved = medal > int(prev);
+        if (improved) m_bestMedalSeen.Set(m_currentLabel, int64(medal));
+
+        if (!firstFinish && !improved) return;
 
         FinishEvent ev;
         ev.trackLabel = m_currentLabel;
@@ -143,7 +151,7 @@ class GameState {
         ev.medal = Medal(medal);
         ev.timeMs = runMs;
         @pendingFinish = ev;
-        Log::Info("Medal on " + ev.trackLabel + ": " + tostring(ev.medal) + " (" + ev.timeMs + " ms)");
+        Log::Info("Finish on " + ev.trackLabel + ": medal " + medal + " (" + ev.timeMs + " ms)");
     }
 
     // Best available finish time in ms, or 0xFFFFFFFF if none is ready yet.

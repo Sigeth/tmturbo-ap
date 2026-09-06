@@ -153,6 +153,12 @@ class ApClient {
         Json::Value@ players = cmd["players"];
         for (uint i = 0; i < players.Length; i++) playerNames.InsertLast(string(players[i]["alias"]));
 
+        // Apply slot_data (unlock style, goal, thresholds) and restore the
+        // per-seed finished-track set before seeding from the server. Item /
+        // unlock state is rebuilt by the Sync replay below, so it is not loaded.
+        items.OnSlotData(m_slotData);
+        locations.LoadFinished();
+
         // Seed the location manager with what the server already recorded.
         locations.SeedFromServer(cmd["checked_locations"], cmd["missing_locations"]);
 

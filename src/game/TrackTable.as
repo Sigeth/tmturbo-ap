@@ -72,3 +72,69 @@ string TrackLocationName(const string &in trackLabel, Medal medal) {
     if (trackLabel == "" || int(medal) < 1 || int(medal) > 4) return "";
     return trackLabel + " - " + MEDAL_SUFFIX[int(medal)];
 }
+
+// ---- vanilla unlock model -------------------------------------------------
+//
+// The 200 campaign tracks split into 20 "blocks" of 10 (one tier/environment
+// pair each), in campaign order: block index i = tierIdx*4 + envIdx, i in 0..19.
+// Block i opens once the player has received block-threshold[i] medal items of
+// the block's grade -- Bronze for the White/Green blocks (i < 8), Silver for
+// Blue/Red (i < 16), Gold for Black. block-threshold[i] == 10*i (block 0 -> 0,
+// always open); the real table is sent in slot_data. These helpers mirror the
+// apworld (worlds/trackmania_turbo/__init__.py).
+
+const int BLOCK_COUNT = 20;
+const int TRACKS_PER_BLOCK = 10;
+const int ENV_COUNT = 4;        // == ENVIRONMENTS.Length, as an int for arithmetic
+
+// campaign number 1..200 -> block 0..19; out of range -> -1.
+int BlockIndex(int campaignNumber) {
+    if (campaignNumber < 1 || campaignNumber > 200) return -1;
+    return (campaignNumber - 1) / TRACKS_PER_BLOCK;
+}
+
+// "White Valley 03" -> block 1; malformed -> -1.
+int BlockIndexFromLabel(const string &in label) {
+    return BlockIndex(CampaignNumberFromLabel(label));
+}
+
+// The medal grade whose received count gates this block.
+Medal BlockGrade(int blockIndex) {
+    if (blockIndex < 8) return Medal::Bronze;
+    if (blockIndex < 16) return Medal::Silver;
+    return Medal::Gold;
+}
+
+// "White Canyon", "Black Stadium", ... ; "" if out of range.
+string BlockName(int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= BLOCK_COUNT) return "";
+    return TIERS[blockIndex / ENV_COUNT] + " " + ENVIRONMENTS[blockIndex % ENV_COUNT];
+}
+
+// "White", "Black", ... ; "" if out of range.
+string TierNameForBlock(int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= BLOCK_COUNT) return "";
+    return TIERS[blockIndex / ENV_COUNT];
+}
+
+// Milestone location names (must match the apworld).
+string BlockCompleteLocation(int blockIndex) {
+    string n = BlockName(blockIndex);
+    return n == "" ? "" : n + " Complete";
+}
+string TierCompleteLocation(int blockIndex) {
+    string n = TierNameForBlock(blockIndex);
+    return n == "" ? "" : n + " Complete";
+}
+
+// The k-th campaign number (k = 0..9) in a block.
+int BlockTrackNumber(int blockIndex, int k) {
+    if (blockIndex < 0 || blockIndex >= BLOCK_COUNT || k < 0 || k >= TRACKS_PER_BLOCK) return 0;
+    return blockIndex * TRACKS_PER_BLOCK + k + 1;
+}
+
+// Tier index (0..4) owning this block.
+int TierIndexForBlock(int blockIndex) {
+    if (blockIndex < 0 || blockIndex >= BLOCK_COUNT) return -1;
+    return blockIndex / ENV_COUNT;
+}
