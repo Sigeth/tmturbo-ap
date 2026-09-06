@@ -1,11 +1,15 @@
-// Draws lock / medal-progress markers straight onto Turbo's campaign map grid,
-// one per tile, for all 200 campaign tracks.
+// Draws lock / medal-progress markers straight onto Turbo's campaign
+// series-overview grid, one per tile, for all 200 campaign tracks.
 //
-// Turbo has no menu API, so we walk the Nadeo ManiaLink tree: find
-// "FrameAll_Buttons" (in UILayers[11], the campaign grid), iterate its
-// "Frame_Instance*" tile children, read each tile's map number from its
-// "MouseInput_Track_<row>:<col>" child, and take its position from
-// AbsolutePosition_V3 (ManiaLink coordinate space).
+// Turbo has no menu API. Which screen is up:
+//   - series-overview grid (we draw here): UILayers[12].IsVisible
+//   - per-series track picker (don't draw): layer 11 Frame_AllBrowseTrack visible
+//   - anything else: layer 12 hidden
+// Tile geometry is read from layer 11's ManiaLink tree (find "FrameAll_Buttons",
+// iterate its "Frame_Instance*" children, map number from the
+// "MouseInput_Track_<row>:<col>" child, position from AbsolutePosition_V3) -- its
+// 200 tiles line up with what layer 12 renders, and layer 12's own tiles use
+// opaque ids.
 //
 // The ManiaLink tile grid occupies a fixed rectangle in ML space (measured
 // in-game): x in [-120.28, 843.74], y in [25.80, -424.20] (y is up). We map that
@@ -60,17 +64,48 @@ namespace Overlay {
         return null;
     }
 
+    // Which campaign screen is on:
+    //   - series-overview grid (we draw here): UILayers[12].IsVisible == true
+    //   - per-series track picker: layer 11's Frame_AllBrowseTrack.Visible == true
+    //   - anything else (main menu, ...): layer 12 hidden
+    // Tile geometry is read from layer 11 (its 200 Frame_Instance tiles line up
+    // with the rendered overview grid); layer 12's own tiles use opaque ids.
     CGameManialinkFrame@ TilesFrame(CGameManiaAppTitle@ m) {
-        if (m is null) return null;
-        for (uint pass = 0; pass < m.UILayers.Length + 1; pass++) {
-            uint li = (pass == 0) ? 11 : (pass - 1);
-            if (li >= m.UILayers.Length) continue;
-            auto layer = cast<CGameUILayer>(m.UILayers[li]);
-            if (layer is null || layer.LocalPage is null) continue;
-            auto hit = FindFrameById(layer.LocalPage.MainFrame, "FrameAll_Buttons", 0);
-            if (hit !is null && hit.Controls.Length > 20) return hit;
-        }
+        if (m is null || m.UILayers.Length <= 12) return null;
+
+        auto grid = cast<CGameUILayer>(m.UILayers[12]);
+        if (grid is null || !grid.IsVisible) return null;      // series grid must be up
+
+        auto l11 = cast<CGameUILayer>(m.UILayers[11]);
+        if (l11 is null || l11.LocalPage is null || l11.LocalPage.MainFrame is null) return null;
+        auto main = l11.LocalPage.MainFrame;
+        auto root = FindFrameById(main, "Frame_AllBrowseTrack", 0);
+        if (root !is null && root.Visible) return null;        // that's the track picker
+        auto hit = FindFrameById(main, "FrameAll_Buttons", 0);
+        if (hit !is null && hit.Controls.Length > 20) return hit;
         return null;
+    }
+
+    string VB(CGameManialinkControl@ c) { return c is null ? "?" : (c.Visible ? "1" : "0"); }
+
+    // Live status for the Debug section.
+    string DebugStatus() {
+        auto app = cast<CTrackMania>(GetApp());
+        if (app is null) return "no app";
+        if (app.Challenge !is null) return "in a map";
+        auto menu = cast<CTrackManiaMenus>(app.MenuManager);
+        if (menu is null) return "no menu mgr";
+        auto mm = menu.MenuCustom_CurrentManiaApp;
+        if (mm is null || mm.UILayers.Length <= 12) return "no maniaApp";
+        auto l12 = cast<CGameUILayer>(mm.UILayers[12]);
+        auto l11 = cast<CGameUILayer>(mm.UILayers[11]);
+        string brt = "?";
+        if (l11 !is null && l11.LocalPage !is null && l11.LocalPage.MainFrame !is null)
+            brt = VB(FindFrameById(l11.LocalPage.MainFrame, "Frame_AllBrowseTrack", 0));
+        return "L12.vis=" + (l12 !is null && l12.IsVisible ? "1" : "0")
+            + " L11.vis=" + (l11 !is null && l11.IsVisible ? "1" : "0")
+            + " brt=" + brt
+            + (TilesFrame(mm) !is null ? "  -> DRAWING" : "  -> off");
     }
 
     // "MouseInput_Track_R:C" -> 1..200, or 0.

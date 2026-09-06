@@ -25,6 +25,7 @@ void RenderInterface() {
         RenderProgress();
         UI::Separator();
         if (UI::CollapsingHeader("Overlay alignment")) {
+            UI::TextWrapped(Overlay::DebugStatus());
             UI::TextDisabled("If the overlay is off (different resolution or");
             UI::TextDisabled("aspect): open the campaign grid, tick 'boxes',");
             UI::TextDisabled("drag until the boxes sit on the tiles.");
