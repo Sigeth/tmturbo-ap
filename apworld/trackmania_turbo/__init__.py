@@ -40,7 +40,7 @@ GAME_NAME = "Trackmania Turbo"
 
 # Kept in lockstep with info.toml / archipelago.json by tools/bump_version.py
 # (semantic-release); tools/lint.py fails the build if they drift.
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 TIERS: List[str] = ["White", "Green", "Blue", "Red", "Black"]
 ENVIRONMENTS: List[str] = ["Canyon", "Valley", "Lagoon", "Stadium"]
