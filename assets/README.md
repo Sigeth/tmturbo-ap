@@ -5,21 +5,21 @@ Runtime files the plugin loads by plugin-relative path
 
 ## Medal ceremony sounds — NATIVE ONLY, not shipped
 
-`src/ui/MedalSplash.as` plays these on two triggers (`S_MedalSound`):
+`src/ui/MedalSplash.as` plays these on a finish that earns a check (`S_MedalSound`):
 
 | File                             | Plays when                                             |
 |----------------------------------|--------------------------------------------------------|
-| `assets/voice-medal-bronze.wav`  | a **Bronze Medal** item is received from Archipelago   |
-| `assets/voice-medal-silver.wav`  | a **Silver Medal** item is received                    |
-| `assets/voice-medal-gold.wav`    | a **Gold Medal** item is received, **or** a finish earns a check with a Gold run |
+| `assets/voice-medal-bronze.wav`  | reserved -- no current trigger (see below)             |
+| `assets/voice-medal-silver.wav`  | reserved -- no current trigger (see below)             |
+| `assets/voice-medal-gold.wav`    | a finish earns a check with a Gold run                 |
 | `assets/voice-medal-author.wav`  | a finish earns a check with an Author run (Author wins when the run also cleared Gold) |
 
-A Bronze/Silver *finish* is silent — those lines fire on item receipt only. When
-several medal items land in one server batch, only the highest tier speaks.
-
-**These are gitignored (`/assets/*.wav`, `/assets/*.ogg`) and never committed** —
-they're Nadeo's copyrighted audio, ripped from the Turbo packs; each player
-extracts and drops in their own copy locally. Only this README is tracked.
+A Bronze/Silver *finish* is silent. There used to be a second trigger — a
+received Bronze/Silver/Gold medal *item* playing that tier's line — but the
+apworld now sends a single ungraded "Progressive Medal" item (see
+`ItemManager.as`), so there's no tier to announce on receipt. Dropped until
+`unlock_style: real_medals` reintroduces per-grade items; the bronze/silver
+files stay reserved for that.
 
 These are the game's own announcer voice lines, extracted from the Turbo packs
 (44.1 kHz mono 16-bit PCM WAV — `Audio::LoadSample` reads them directly, `bext` /
